@@ -1,0 +1,14 @@
+# Secrets — NEVER commit. (This service needs none, but the rule stands.)
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/

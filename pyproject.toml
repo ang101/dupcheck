@@ -1,0 +1,51 @@
+[project]
+name = "dupcheck"
+version = "0.1.0"
+description = "Duplicate-Skill Checker for the NANDA Town registry: check a proposed skill against every live entry before you build it"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "pydantic>=2.7",
+    "scikit-learn>=1.5",
+    "httpx>=0.27",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "pyright>=1.1.390",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "A", "SIM"]
+
+[tool.pyright]
+include = ["app", "tests"]
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+
+# Starlette's TestClient shim ships without type information; strict-mode
+# unknown-type errors in tests are framework noise. App code stays strict.
+[[tool.pyright.executionEnvironments]]
+root = "tests"
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+reportUnknownLambdaType = false
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
