@@ -6,9 +6,19 @@ free-tier host, and no rate limit on a public unauthenticated endpoint.
 The tradeoff — lexical rather than semantic matching — is documented in
 the README; the isolation of scoring behind one function makes an
 embeddings swap a drop-in change later.
+
+The corpus vectorizer is fit once per registry snapshot (``SimilarityIndex``,
+cached in ``main.py`` and rebuilt only when ``RegistryCache.version``
+changes) rather than refit on every ``/check`` request. The registry only
+actually changes when ``RegistryCache`` refetches (every 5 minutes);
+refitting a TF-IDF vectorizer on the full corpus for every single request
+was pure waste, redone identically every time in between refreshes.
 """
 
 from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import cast
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity  # pyright: ignore[reportUnknownVariableType]
@@ -52,6 +62,64 @@ def build_corpus_texts(skills: list[RegistrySkill]) -> list[str]:
     return [f"{skill.name} {skill.description}" for skill in skills]
 
 
+@dataclass(frozen=True)
+class SimilarityIndex:
+    """A TF-IDF vectorizer pre-fit on one registry snapshot.
+
+    Building this is the expensive step (fits over the whole corpus); it is
+    done once per registry refresh, not once per request. ``skills`` is kept
+    alongside so a caller can zip scores back to the entries they came from
+    without re-deriving candidate order.
+    """
+
+    skills: list[RegistrySkill]
+    vectorizer: TfidfVectorizer
+    matrix: object  # sparse matrix; sklearn ships no type info to name this precisely
+
+
+def build_similarity_index(candidates: list[RegistrySkill]) -> SimilarityIndex:
+    """Fit a TF-IDF vectorizer once over the given registry snapshot.
+
+    Example::
+
+        index = build_similarity_index(skills)
+        scores = score_against_index(index, "My Skill", "does things")
+    """
+    vectorizer = TfidfVectorizer(stop_words="english")
+    matrix: object = None
+    if candidates:
+        # sklearn ships no type information; the whole build stays untyped
+        # until it crosses into SimilarityIndex.matrix (declared `object`).
+        fitted = vectorizer.fit_transform(build_corpus_texts(candidates))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportUnknownVariableType]
+        matrix = cast("object", fitted)
+    return SimilarityIndex(skills=list(candidates), vectorizer=vectorizer, matrix=matrix)
+
+
+def score_against_index(
+    index: SimilarityIndex,
+    query_name: str,
+    query_description: str,
+) -> list[float]:
+    """Cosine similarity of a proposed skill against a pre-fit index.
+
+    Only the query is vectorized on this call (cheap ``transform``, not
+    ``fit_transform``) — the expensive corpus fit already happened when the
+    index was built. Returns one score per candidate, in the index's order.
+    An empty index returns ``[]`` — an empty registry is a legitimate state.
+
+    Example::
+
+        scores = score_against_index(index, "My Skill", "does things")
+    """
+    if not index.skills:
+        return []
+    query_text = f"{query_name} {query_description}"
+    # sklearn ships no type information; suppressions are scoped to the calls.
+    query_vector = index.vectorizer.transform([query_text])  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType, reportUnknownArgumentType]
+    similarities = cosine_similarity(query_vector, index.matrix)[0]  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType, reportUnknownMemberType, reportIndexIssue]
+    return [float(score) for score in similarities]  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+
+
 def compute_similarity_scores(
     query_name: str,
     query_description: str,
@@ -59,23 +127,17 @@ def compute_similarity_scores(
 ) -> list[float]:
     """Cosine similarity of the proposed skill against every candidate.
 
-    Returns one score per candidate, in candidate order. An empty candidate
-    list returns ``[]`` — an empty registry is a legitimate state, not an
-    error.
+    Convenience wrapper that builds a one-off index and scores against it —
+    correct for tests and small ad-hoc calls, but callers serving repeated
+    requests against the same registry snapshot should build a
+    ``SimilarityIndex`` once (see ``build_similarity_index``) and call
+    ``score_against_index`` directly instead of refitting per call.
 
     Example::
 
         scores = compute_similarity_scores("My Skill", "does things", skills)
     """
-    if not candidates:
-        return []
-    corpus = build_corpus_texts(candidates)
-    query_text = f"{query_name} {query_description}"
-    vectorizer = TfidfVectorizer(stop_words="english")
-    # sklearn ships no type information; suppressions are scoped to the calls.
-    matrix = vectorizer.fit_transform([*corpus, query_text])  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-    similarities = cosine_similarity(matrix[-1:], matrix[:-1])[0]  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType, reportUnknownMemberType, reportIndexIssue]
-    return [float(score) for score in similarities]  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+    return score_against_index(build_similarity_index(candidates), query_name, query_description)
 
 
 def rank_duplicates(

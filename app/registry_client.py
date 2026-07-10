@@ -149,6 +149,22 @@ class RegistryCache:
         self._entries: list[RegistrySkill] = []
         self._skipped = 0
         self._fetched_at: float | None = None
+        self._version = 0
+
+    @property
+    def version(self) -> int:
+        """Increments only on an actual refetch, never on a cache hit.
+
+        Lets a caller (e.g. a TF-IDF index built over the registry) know
+        when its own cached derivative is stale, without comparing the full
+        entry list on every request.
+
+        Example::
+
+            if my_index_version != cache.version:
+                rebuild_index(cache.get())
+        """
+        return self._version
 
     @property
     def skipped_count(self) -> int:
@@ -176,4 +192,5 @@ class RegistryCache:
         if self._fetched_at is None or (now - self._fetched_at) > self._ttl_seconds:
             self._entries, self._skipped = fetch_registry(self._registry_url)
             self._fetched_at = now
+            self._version += 1
         return list(self._entries)

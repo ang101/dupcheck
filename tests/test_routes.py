@@ -18,7 +18,15 @@ _ESCROW = RegistrySkill(
 
 
 class _StubCache(RegistryCache):
-    """Cache double returning canned data without any network."""
+    """Cache double returning canned data without any network.
+
+    ``version`` is ``id(self)`` — unique per instance — so a fresh
+    ``_StubCache`` in one test can never cause the similarity index cached
+    from a *different* stub instance in an earlier test to be silently
+    reused against different skill data (the base class's real ``version``
+    only changes on an actual network refetch, which this double's
+    overridden ``get()`` never triggers).
+    """
 
     def __init__(self, skills: list[RegistrySkill], skipped: int = 0) -> None:
         super().__init__("https://registry.example", ttl_seconds=300)
@@ -27,6 +35,10 @@ class _StubCache(RegistryCache):
 
     def get(self) -> list[RegistrySkill]:
         return list(self._stub_skills)
+
+    @property
+    def version(self) -> int:
+        return id(self)
 
 
 class _FailingCache(RegistryCache):
@@ -97,6 +109,56 @@ class TestCheckRoute:
         assert response.status_code == 422
 
 
+class TestSimilarityIndexCaching:
+    """Proves the TF-IDF vectorizer is fit once per registry snapshot, not per request."""
+
+    def test_index_is_reused_across_requests_against_same_cache(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import app.main as main_module
+
+        calls = {"n": 0}
+        real_build = main_module.build_similarity_index
+
+        def _counting_build(candidates: list[RegistrySkill]) -> object:
+            calls["n"] += 1
+            return real_build(candidates)
+
+        monkeypatch.setattr(main_module, "build_similarity_index", _counting_build)
+        client = _client(_StubCache([_ESCROW]))
+        client.post("/check", json={"name": "A", "description": "anything"})
+        client.post("/check", json={"name": "B", "description": "anything else"})
+        client.post("/check", json={"name": "C", "description": "a third query"})
+        assert calls["n"] == 1
+
+    def test_index_rebuilds_when_cache_version_changes(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import app.main as main_module
+
+        calls = {"n": 0}
+        real_build = main_module.build_similarity_index
+
+        def _counting_build(candidates: list[RegistrySkill]) -> object:
+            calls["n"] += 1
+            return real_build(candidates)
+
+        monkeypatch.setattr(main_module, "build_similarity_index", _counting_build)
+        app.state.similarity_index = None
+        app.state.similarity_index_version = -1
+
+        client = _client(_StubCache([_ESCROW]))
+        client.post("/check", json={"name": "A", "description": "anything"})
+
+        # A fresh _StubCache is a different registry snapshot (new instance,
+        # new id-based version) even though its content happens to match —
+        # this is exactly the scenario the id()-based test double exists to
+        # exercise safely instead of silently reusing a stale index.
+        client2 = _client(_StubCache([_ESCROW]))
+        client2.post("/check", json={"name": "B", "description": "anything"})
+        assert calls["n"] == 2
+
+
 class TestInspectionEndpoints:
     def test_get_skill_md_returns_markdown_content_type(self) -> None:
         client = _client(_StubCache([_ESCROW]))
@@ -119,7 +181,9 @@ class TestInspectionEndpoints:
 
 @pytest.fixture(autouse=True)
 def _restore_cache() -> object:  # pyright: ignore[reportUnusedFunction] — autouse fixture, invoked by pytest
-    """Restore the real cache after each test so tests never leak state."""
+    """Restore the real cache and clear the index cache after each test."""
     original = app.state.registry_cache
     yield
     app.state.registry_cache = original
+    app.state.similarity_index = None
+    app.state.similarity_index_version = -1

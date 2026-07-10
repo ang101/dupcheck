@@ -13,9 +13,15 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
-from app.models import CheckRequest, CheckResponse
+from app.models import CheckRequest, CheckResponse, RegistrySkill
 from app.registry_client import DEFAULT_REGISTRY_URL, RegistryCache, RegistryFetchError
-from app.similarity import compute_similarity_scores, is_likely_duplicate, rank_duplicates
+from app.similarity import (
+    SimilarityIndex,
+    build_similarity_index,
+    is_likely_duplicate,
+    rank_duplicates,
+    score_against_index,
+)
 
 SKILL_MD_PATH = Path(__file__).resolve().parent.parent / "SKILL.md"
 REGISTRY_URL_ENV_VAR = "DUPCHECK_REGISTRY_URL"
@@ -34,6 +40,8 @@ app = FastAPI(
 app.state.registry_cache = RegistryCache(
     registry_url=os.environ.get(REGISTRY_URL_ENV_VAR, DEFAULT_REGISTRY_URL)
 )
+app.state.similarity_index = None
+app.state.similarity_index_version = -1
 
 
 def get_registry_cache(request: Request) -> RegistryCache:
@@ -42,8 +50,28 @@ def get_registry_cache(request: Request) -> RegistryCache:
     return cache
 
 
+def _get_or_build_index(
+    request: Request, cache: RegistryCache, skills: list[RegistrySkill]
+) -> SimilarityIndex:
+    """Return the cached TF-IDF index, rebuilding only when the registry actually refetched.
+
+    ``RegistryCache.version`` only increments on a real network refresh
+    (every 5 minutes), so the expensive vectorizer fit happens at most once
+    per refresh instead of once per ``/check`` request — the caller already
+    has ``skills`` from its own ``cache.get()`` call, so this never fetches
+    the registry a second time.
+    """
+    state = request.app.state
+    if state.similarity_index is None or state.similarity_index_version != cache.version:
+        state.similarity_index = build_similarity_index(skills)
+        state.similarity_index_version = cache.version
+    index: SimilarityIndex = state.similarity_index
+    return index
+
+
 @app.post("/check", response_model=CheckResponse)
 def check_skill(
+    request: Request,
     body: CheckRequest,
     cache: Annotated[RegistryCache, Depends(get_registry_cache)],
 ) -> CheckResponse:
@@ -58,7 +86,8 @@ def check_skill(
     if not skills:
         return CheckResponse(duplicates=[], is_likely_duplicate=False, registry_count=0)
 
-    scores = compute_similarity_scores(body.name, body.description, skills)
+    index = _get_or_build_index(request, cache, skills)
+    scores = score_against_index(index, body.name, body.description)
     duplicates = rank_duplicates(skills, scores)
     return CheckResponse(
         duplicates=duplicates,

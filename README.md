@@ -38,8 +38,17 @@ complete agent-facing usage contract with real captured examples.
   dependency, no model download on a free-tier cold start, no rate limit on
   a public endpoint. The tradeoff is lexical rather than semantic matching:
   a duplicate that shares no vocabulary with its twin can slip through.
-  Scoring is isolated behind one function (`compute_similarity_scores`) so
-  an embeddings swap is a drop-in change.
+  Scoring is isolated behind one function (`score_against_index`) so an
+  embeddings swap is a drop-in change.
+- **The vectorizer is fit once per registry snapshot, not once per request**
+  — a `SimilarityIndex` is built when the registry cache actually refetches
+  (tracked via `RegistryCache.version`, which only increments on a real
+  network refresh) and reused for every `/check` call in between. Each
+  request only does a cheap `transform()` of the proposed skill against the
+  already-fitted corpus, not a full re-fit. This also fixed a subtle
+  correctness issue: the old per-request fit mixed each query into the IDF
+  statistics, so scores drifted slightly depending on what was being
+  checked; the cached index scores consistently against the registry alone.
 - **Fetch-on-request with a 5-minute TTL, no background refresher** — at
   ~100 entries a fetch is cheap, and a scheduler thread would just die on
   every free-tier dyno sleep.

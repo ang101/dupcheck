@@ -42,7 +42,7 @@ Proposing *"Clinical Discharge Summary Generator"* against the live
 registry surfaces **all four** existing clinical-discharge entries
 (including both resubmission pairs) and returns
 `is_likely_duplicate: true`. Proposing a genuinely novel idea returns a
-clean `{"duplicates": [], "is_likely_duplicate": false, "registry_count": 106}` —
+clean `{"duplicates": [], "is_likely_duplicate": false, "registry_count": 130}` —
 with the count proving it actually compared against a populated registry.
 
 ## Design honesty

@@ -53,38 +53,50 @@ entries, including two literal resubmission pairs:
     {
       "id": "12e5f20a-c42e-462a-94f5-b014c90f45da",
       "name": "Clinical-Discharge-Summary-Agent",
-      "similarity_score": 0.5339,
+      "similarity_score": 0.6348,
       "description": "An intelligent clinical AI system that reads patient records, audits medications, flags safety concerns, and generates structured discharge summaries learning and improving from every clinician correction."
     },
     {
       "id": "b2745926-ab8f-4ccf-9479-678d30bc2d80",
       "name": "Clinical-Discharge-Summary-Agent",
-      "similarity_score": 0.5339,
+      "similarity_score": 0.6348,
       "description": "An intelligent clinical AI system that reads patient records, audits medications, flags safety concerns, and generates structured discharge summaries learning and improving from every clinician correction."
     },
     {
       "id": "f93b298f-9694-45ae-aaad-59827020abaf",
       "name": "Clinical-Discharge-summary-agent",
-      "similarity_score": 0.3493,
+      "similarity_score": 0.4329,
       "description": "an AI agent made from scratch that extracts data of medical reports of a patient that can be images of medical reports and generate the dischare summary and the agent imroves through a reinforcement learning mechanism"
     },
     {
       "id": "b1721367-cacf-4586-a6da-19491813be99",
       "name": "Clinical-Discharge-summary-agent",
-      "similarity_score": 0.3493,
+      "similarity_score": 0.4329,
       "description": "an AI agent made from scratch that extracts data of medical reports of a patient that can be images of medical reports and generate the dischare summary and the agent imroves through a reinforcement learning mechanism"
     }
   ],
   "is_likely_duplicate": true,
-  "registry_count": 106
+  "registry_count": 130
 }
 ```
 
-Response (`200`, real captured output) — clear to build (proposal:
-"Agent Karaoke Night Scheduler"):
+Response (`200`, real captured output) — a proposal similar-but-distinct from an
+existing skill lands below the duplicate threshold and is still shown as
+prior art (proposal: "Agent Karaoke Night Scheduler"):
 
 ```json
-{"duplicates": [], "is_likely_duplicate": false, "registry_count": 106}
+{
+  "duplicates": [
+    {
+      "id": "f5f3fb82-00da-4ceb-bbd7-7d4e9331b83d",
+      "name": "SwarmShift",
+      "similarity_score": 0.3185,
+      "description": "Schedules dependent work across capable AI agents, then replans around failures without repeating completed tasks."
+    }
+  ],
+  "is_likely_duplicate": false,
+  "registry_count": 130
+}
 ```
 
 - `duplicates` — up to 5 entries scoring ≥ 0.30, sorted by score descending.
