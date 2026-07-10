@@ -1,3 +1,8 @@
+---
+name: dupcheck
+description: Check a proposed skill's name and description against the live NANDA Town registry for near-duplicates before building or registering it. Use before building a new skill, before submitting to the registry, or to find prior art for an idea.
+---
+
 # Duplicate-Skill Checker
 
 Check a proposed skill against every live entry in the NANDA Town registry
