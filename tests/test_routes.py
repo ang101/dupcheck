@@ -178,6 +178,11 @@ class TestInspectionEndpoints:
         assert body["status"] == "degraded"
         assert "unreachable" in body["registry"]
 
+    def test_cors_header_present_on_response(self) -> None:
+        client = _client(_StubCache([_ESCROW]))
+        response = client.get("/health", headers={"Origin": "https://example.com"})
+        assert response.headers["access-control-allow-origin"] == "*"
+
 
 @pytest.fixture(autouse=True)
 def _restore_cache() -> object:  # pyright: ignore[reportUnusedFunction] — autouse fixture, invoked by pytest

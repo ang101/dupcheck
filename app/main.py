@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 
 from app.models import CheckRequest, CheckResponse, RegistrySkill
@@ -35,6 +36,16 @@ app = FastAPI(
         "registry before you build it — catch near-duplicates early."
     ),
     version="0.1.0",
+)
+
+# All endpoints are already public and unauthenticated (see SKILL.md); this
+# only lets browser-based callers (e.g. the demo UI) receive responses they
+# could already fetch with curl — it grants no new access.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 app.state.registry_cache = RegistryCache(
