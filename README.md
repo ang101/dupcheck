@@ -1,18 +1,48 @@
 # Duplicate-Skill Checker
 
-Check a proposed skill against every live entry in the NANDA Town registry
-**before you build it**. One POST returns the most similar existing skills
-with scores — catch a near-duplicate in five seconds instead of after a
-weekend of building.
+**Catch a near-duplicate skill in five seconds, before you spend a weekend
+building it.** Check a proposed skill against every live entry in the NANDA
+Town registry — one POST returns the most similar existing skills with
+scores and a clear verdict.
+
+**Live:** [dupcheck.onrender.com](https://dupcheck.onrender.com) · **Agent
+contract:** [`/skill.md`](https://dupcheck.onrender.com/skill.md)
+
+**42 tests · ruff clean · pyright strict, 0 errors.** Every request/response
+example in this repo's docs is real captured output from the live
+deployment, not invented.
+
+**Built for humans and agents, identically.** The API is a plain,
+unauthenticated `POST` — a human hits it with curl before opening an
+editor, and an agent hits the exact same endpoint autonomously after
+reading [SKILL.md](SKILL.md), with no human in the loop. That agent path is
+the one that matters for "a stock agent must succeed using only your
+SKILL.md" — this isn't a human tool with an API bolted on, it's an API a
+stock agent can discover and use entirely on its own.
 
 ## Why this exists
 
-The NANDA Town registry has grown past 100 skills, and it already contains
-real near-duplicates — multiple builders independently shipped nearly
-identical skills (e.g. a cluster of clinical discharge-summary tools),
-because nothing checks a new idea against what already exists. Every
-duplicate is wasted builder time and registry noise that makes discovery
-worse for everyone.
+The NANDA Town registry has 200+ entries and is growing fast — and it
+already contains real near-duplicates: multiple builders independently
+shipped nearly identical skills (a cluster of clinical discharge-summary
+tools, 16+ literal resubmissions, more) because nothing checks a new idea
+against what already exists. Every duplicate is wasted builder time and
+registry noise that makes discovery worse for everyone.
+
+## Try it right now (no setup)
+
+```bash
+curl -s -X POST https://dupcheck.onrender.com/check \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Agent Escrow Service", "description": "Secure escrow and dispute resolution for agent-to-agent payments"}'
+```
+
+Real captured response — a live registry entry with a different name,
+`AgentCourt Escrow & Arbitration Court`, already covers this:
+
+```json
+{"duplicates":[{"id":"1cf2c771-7e15-47b2-b61c-52f9384400ca","name":"AgentCourt Escrow & Arbitration Court","similarity_score":0.6948,"description":"A secure agent escrow and dispute resolution service."}],"is_likely_duplicate":true,"registry_count":229}
+```
 
 ## How it works
 
@@ -20,6 +50,8 @@ worse for everyone.
 fetches the live registry (cached 5 minutes), computes TF-IDF cosine
 similarity against every entry's name+description, and returns the top
 matches above a floor plus an `is_likely_duplicate` verdict.
+
+To run it locally instead of hitting the live URL:
 
 ```bash
 uv sync

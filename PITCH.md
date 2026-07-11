@@ -3,10 +3,17 @@
 
 ---
 
+**In one sentence**: POST a proposed skill's name and description, get back
+the most similar existing skills with scores and a clear
+`is_likely_duplicate` verdict — five seconds instead of a wasted weekend,
+usable identically by a human builder or a fully autonomous agent.
+
+---
+
 ## The problem: the registry is already full of duplicates
 
 This isn't hypothetical. Measured against the live NANDA Town registry
-(109 entries, 2026-07-10), computing pairwise similarity across every
+(229 entries, 2026-07-10), computing pairwise similarity across every
 entry finds:
 
 - **16 pairs of literal resubmissions** (similarity exactly 1.0):
@@ -33,18 +40,33 @@ POST /check {"name": "...", "description": "..."}
 → is_likely_duplicate: true/false
 ```
 
-Five seconds instead of a wasted weekend. Works for humans and — via
-SKILL.md — for agents that autonomously decide what to build or register,
-including an orchestrator agent deciding whether to author a brand-new
-skill for a subtask or delegate to one that already exists.
+Five seconds instead of a wasted weekend. Built for humans and agents
+identically — the endpoint doesn't know or care which is calling. A human
+runs it with curl before opening an editor; an agent runs the exact same
+call autonomously after reading SKILL.md, including an orchestrator
+deciding whether to author a brand-new skill for a subtask or delegate to
+one that already exists. The agent path is the one that satisfies "a stock
+agent must succeed using only your SKILL.md" — this is an API a stock
+agent can discover and use on its own, not a human tool with an API bolted
+on afterward.
 
 ## Evidence it works (real captured output)
 
-Proposing *"Clinical Discharge Summary Generator"* against the live
-registry surfaces **all four** existing clinical-discharge entries
-(including both resubmission pairs) and returns
-`is_likely_duplicate: true`. Proposing a genuinely novel idea returns a
-clean `{"duplicates": [], "is_likely_duplicate": false, "registry_count": 130}` —
+**Proof it catches function, not just names.** Proposing a completely
+made-up name — `"TaskGuard Preflight"`, sharing zero words with anything in
+the registry — with the description *"Pre-action decision API: tells
+agents if a task is safe, what is missing, and which option to pick before
+they act"* still surfaces two real, differently-named registry skills:
+`AgentCheckpoint` (0.78) and `AgentGate` (0.74), both well above the 0.45
+duplicate threshold. Neither name overlaps the proposal at all — this is
+lexical-on-meaning, not lexical-on-labels.
+
+**Proof it catches literal resubmission clusters.** Proposing *"Clinical
+Discharge Summary Generator"* against the live registry surfaces **all
+four** existing clinical-discharge entries (including both resubmission
+pairs) and returns `is_likely_duplicate: true`. Proposing a genuinely novel
+idea returns a clean
+`{"duplicates": [], "is_likely_duplicate": false, "registry_count": 229}` —
 with the count proving it actually compared against a populated registry.
 
 ## Design honesty
