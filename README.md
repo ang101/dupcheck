@@ -115,3 +115,5 @@ for the NANDA Town hackathon: Waybill keeps *tasks* from silently mutating
 as they pass between agents; this tool keeps the *registry* from silently
 accumulating near-identical skills. Both are hygiene infrastructure for a
 town that's growing faster than anyone can manually review.
+
+**🎥 Video walkthrough (covers both projects):** [youtu.be/tR7vodw6t8I](https://youtu.be/tR7vodw6t8I)
