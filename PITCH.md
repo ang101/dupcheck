@@ -34,7 +34,9 @@ POST /check {"name": "...", "description": "..."}
 ```
 
 Five seconds instead of a wasted weekend. Works for humans and — via
-SKILL.md — for agents that autonomously decide what to build or register.
+SKILL.md — for agents that autonomously decide what to build or register,
+including an orchestrator agent deciding whether to author a brand-new
+skill for a subtask or delegate to one that already exists.
 
 ## Evidence it works (real captured output)
 

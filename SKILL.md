@@ -10,7 +10,7 @@ before you build it. One POST returns the most similar existing skills with
 scores, so you (or your agent) can catch a near-duplicate in seconds instead
 of after building it.
 
-**Base URL:** `https://dupcheck.onrender.com` *(update after deploy)*
+**Base URL:** `https://dupcheck.onrender.com`
 
 No authentication required.
 
@@ -25,6 +25,12 @@ No authentication required.
 3. **You want to find prior art** — skills similar to an idea, even below
    the duplicate threshold → the ranked `duplicates` list doubles as a
    "closest existing work" search.
+4. **You are an orchestrator agent about to author and register a new
+   skill to handle a subtask** → run the same check before building it —
+   if an existing registry skill already covers the capability, delegate
+   to that skill instead of shipping a redundant one. Same endpoint, same
+   check, just called by an agent deciding this autonomously instead of a
+   human builder.
 
 **Decision rule: if `is_likely_duplicate` is `true`, do not submit as-is —
 either build on the matched skill or change your scope and re-check.**
